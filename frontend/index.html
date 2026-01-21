@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema TFG SOA - Gestión de Tutorías</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary: #764ba2;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+            --dark: #2d3748;
+            --light: #f7fafc;
+            --gray: #718096;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--light);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 25px 30px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+        }
+        
+        header h1 {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+        
+        header p {
+            opacity: 0.9;
+            font-size: 0.95em;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .header-actions button {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .header-actions button:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* Status Bar */
+        .status-bar {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Login Section */
+        .login-section {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            max-width: 500px;
+            margin: 50px auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .login-section h2 {
+            color: var(--dark);
+            margin-bottom: 30px;
+            font-size: 1.8em;
+        }
+        
+        .login-form input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        .login-form input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .login-form button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .login-form button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .demo-users {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .demo-users h4 {
+            color: var(--gray);
+            margin-bottom: 15px;
+        }
+        
+        .demo-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background: #f0f4f8;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .demo-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .demo-btn.tutor {
+            border: 2px solid var(--warning);
+        }
+        
+        .demo-btn.estudiante {
+            border: 2px solid var(--success);
+        }
+        
+        /* Dashboard */
+        .dashboard {
+            display: none;
+        }
+        
+        .dashboard.active {
+            display: block;
+        }
+        
+        .user-card {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info h3 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+        
+        .user-role {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+        
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+        }
+        
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f4f8;
+        }
+        
+        .card-header i {
+            font-size: 1.5em;
+            color: var(--primary);
+        }
+        
+        .card-header h3 {
+            font-size: 1.2em;
+            color: var(--dark);
+        }
+        
+        /* Files */
+        .file-upload {
+            border: 2px dashed #e2e8f0;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .file-upload:hover {
+            border-color: var(--primary);
+            background: #f8faff;
+        }
+        
+        .file-upload input[type="file"] {
+            display: none;
+        }
+        
+        .file-upload i {
+            font-size: 3em;
+            color: var(--gray);
+            margin-bottom: 15px;
+        }
+        
+        .file-item {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .file-item:hover {
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .file-item.pending {
+            border-left: 4px solid var(--warning);
+        }
+        
+        .file-item.reviewed {
+            border-left: 4px solid var(--success);
+        }
+        
+        .file-item.needs-changes {
+            border-left: 4px solid var(--danger);
+        }
+        
+        /* Appointments */
+        .appointment-item {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 12px;
+        }
+        
+        .appointment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .appointment-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        
+        .appointment-status.pendiente {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .appointment-status.confirmada {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .appointment-status.rechazada {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        /* Notifications */
+        .notification-badge {
+            background: var(--danger);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            margin-left: 10px;
+        }
+        
+        .notification-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .notification-item.unread {
+            background: #eef2ff;
+            border-left: 3px solid var(--primary);
+        }
+        
+        .notification-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+        }
+        
+        .notification-icon.archivo {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        
+        .notification-icon.cita {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        .notification-icon.feedback {
+            background: #d1fae5;
+            color: #059669;
+        }
+        
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #38a169;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: var(--dark);
+        }
+        
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        /* Forms */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--gray);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        
+        .modal-header h3 {
+            font-size: 1.4em;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: var(--gray);
+        }
+        
+        /* Tutor Section */
+        .tutor-section {
+            display: none;
+        }
+        
+        .tutor-section.active {
+            display: block;
+        }
+        
+        .student-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .student-card h4 {
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+        
+        /* API Tester */
+        .api-tester {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+        }
+        
+        .api-result {
+            background: #1e293b;
+            color: #94a3b8;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow: auto;
+            margin-top: 15px;
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: var(--gray);
+            margin-top: 30px;
+        }
+        
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--gray);
+        }
+        
+        .empty-state i {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .user-card {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+            
+            header h1 {
+                font-size: 1.4em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-graduation-cap"></i> Sistema TFG SOA</h1>
+            <p>Sistema de Gestión de Tutorías y Entregas • Arquitectura Orientada a Servicios</p>
+            <div class="header-actions">
+                <button onclick="window.open('/docs', '_blank')"><i class="fas fa-book"></i> API Docs</button>
+                <button onclick="testServices()"><i class="fas fa-heartbeat"></i> Estado Servicios</button>
+            </div>
+        </header>
+        
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="systemStatus">Conectando...</span>
+            </div>
+            <div id="currentTime"></div>
+        </div>
+        
+        <!-- Login Section -->
+        <div class="login-section" id="loginSection">
+            <h2><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</h2>
+            
+            <div class="login-form">
+                <input type="text" id="usernameInput" placeholder="Usuario">
+                <input type="password" id="passwordInput" placeholder="Contraseña">
+                <button onclick="login()">Entrar al Sistema</button>
+            </div>
+            
+            <div class="demo-users">
+                <h4>👥 Usuarios de demostración</h4>
+                <button class="demo-btn estudiante" onclick="demoLogin('estudiante1', 'estudiante123')">
+                    <i class="fas fa-user-graduate"></i> Juan Pérez
+                </button>
+                <button class="demo-btn estudiante" onclick="demoLogin('estudiante2', 'estudiante123')">
+                    <i class="fas fa-user-graduate"></i> María García
+                </button>
+                <button class="demo-btn tutor" onclick="demoLogin('tutor1', 'tutor123')">
+                    <i class="fas fa-chalkboard-teacher"></i> Dr. Antonio López
+                </button>
+            </div>
+            
+            <p style="margin-top: 20px; color: var(--gray);">
+                ¿No tienes cuenta? <a href="/registro" style="color: var(--primary);">Regístrate aquí</a>
+            </p>
+        </div>
+        
+        <!-- Dashboard -->
+        <div class="dashboard" id="dashboard">
+            <div class="user-card">
+                <div class="user-info">
+                    <h3 id="userName">Usuario</h3>
+                    <p id="userEmail">email@example.com</p>
+                    <span class="user-role" id="userRole">ROL</span>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                </button>
+            </div>
+            
+            <div class="grid">
+                <!-- Archivos -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-folder-open"></i>
+                        <h3>Gestión de Archivos</h3>
+                    </div>
+                    
+                    <div id="fileUploadArea" class="file-upload" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Arrastra tu archivo aquí o haz clic para seleccionar</p>
+                        <p style="font-size: 0.85em; color: var(--gray);">Solo PDF o ZIP</p>
+                        <input type="file" id="fileInput" accept=".pdf,.zip" onchange="uploadFile()">
+                    </div>
+                    
+                    <h4 style="margin: 20px 0 15px; color: var(--gray);">📁 Archivos Subidos</h4>
+                    <div id="filesList"></div>
+                </div>
+                
+                <!-- Citas -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-calendar-alt"></i>
+                        <h3>Gestión de Tutorías</h3>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="openAppointmentModal()" id="requestAppointmentBtn">
+                        <i class="fas fa-plus"></i> Solicitar Nueva Tutoría
+                    </button>
+                    
+                    <h4 style="margin: 20px 0 15px; color: var(--gray);">📅 Citas Programadas</h4>
+                    <div id="appointmentsList"></div>
+                </div>
+                
+                <!-- Notificaciones -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-bell"></i>
+                        <h3>Notificaciones</h3>
+                        <span class="notification-badge" id="notificationBadge">0</span>
+                    </div>
+                    
+                    <button class="btn btn-secondary btn-sm" onclick="markAllAsRead()" style="margin-bottom: 15px;">
+                        <i class="fas fa-check-double"></i> Marcar todas como leídas
+                    </button>
+                    
+                    <div id="notificationsList"></div>
+                </div>
+                
+                <!-- Sección del Tutor -->
+                <div class="card tutor-section" id="tutorSection">
+                    <div class="card-header">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        <h3>Panel del Tutor</h3>
+                    </div>
+                    
+                    <h4 style="margin-bottom: 15px;">👨‍🎓 Mis Estudiantes</h4>
+                    <div id="studentsList"></div>
+                    
+                    <h4 style="margin: 25px 0 15px;">📄 Archivos Pendientes de Revisión</h4>
+                    <div id="pendingFilesList"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API Tester -->
+        <div class="api-tester">
+            <div class="card-header">
+                <i class="fas fa-code"></i>
+                <h3>Probador de API</h3>
+            </div>
+            
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <button class="btn btn-secondary" onclick="testEndpoint('/api/health')">
+                    <i class="fas fa-heartbeat"></i> Health
+                </button>
+                <button class="btn btn-secondary" onclick="testEndpoint('/api/services')">
+                    <i class="fas fa-sitemap"></i> Servicios
+                </button>
+                <button class="btn btn-secondary" onclick="testEndpoint('/api/usuarios')">
+                    <i class="fas fa-users"></i> Usuarios
+                </button>
+                <button class="btn btn-secondary" onclick="testEndpoint('/api/tutores')">
+                    <i class="fas fa-chalkboard-teacher"></i> Tutores
+                </button>
+            </div>
+            
+            <div class="api-result" id="apiResult">
+                // Los resultados de la API aparecerán aquí
+            </div>
+        </div>
+        
+        <footer>
+            <p><strong>Sistema TFG SOA</strong> • Arquitectura Orientada a Servicios</p>
+            <p>Backend: FastAPI + SQLite | Frontend: HTML/CSS/JS | ESB Gateway</p>
+            <p><a href="/docs" target="_blank">📖 Documentación API</a> • <a href="/redoc" target="_blank">📚 ReDoc</a></p>
+        </footer>
+    </div>
+    
+    <!-- Modal de Solicitar Cita -->
+    <div class="modal" id="appointmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-calendar-plus"></i> Solicitar Tutoría</h3>
+                <button class="modal-close" onclick="closeModal('appointmentModal')">&times;</button>
+            </div>
+            
+            <form id="appointmentForm" onsubmit="submitAppointment(event)">
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" class="form-control" id="appointmentDate" required>
+                </div>
+                <div class="form-group">
+                    <label>Hora</label>
+                    <input type="time" class="form-control" id="appointmentTime" required>
+                </div>
+                <div class="form-group">
+                    <label>Motivo de la tutoría</label>
+                    <textarea class="form-control" id="appointmentReason" rows="3" required 
+                        placeholder="Describe el motivo de la tutoría..."></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        <i class="fas fa-paper-plane"></i> Enviar Solicitud
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('appointmentModal')">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal de Feedback -->
+    <div class="modal" id="feedbackModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-comment-alt"></i> Agregar Feedback</h3>
+                <button class="modal-close" onclick="closeModal('feedbackModal')">&times;</button>
+            </div>
+            
+            <form id="feedbackForm" onsubmit="submitFeedback(event)">
+                <input type="hidden" id="feedbackFileId">
+                <div class="form-group">
+                    <label>Estado del trabajo</label>
+                    <select class="form-control" id="feedbackStatus">
+                        <option value="revisado">✅ Revisado - Correcto</option>
+                        <option value="necesita_cambios">⚠️ Necesita Cambios</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Comentarios</label>
+                    <textarea class="form-control" id="feedbackText" rows="4" required 
+                        placeholder="Escribe tu feedback aquí..."></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-success" style="flex: 1;">
+                        <i class="fas fa-check"></i> Enviar Feedback
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('feedbackModal')">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = '/api';
+        let currentUser = null;
+        let currentToken = null;
+        
+        // Actualizar hora
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString('es-ES', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+        
+        // Verificar estado del sistema
+        async function checkSystemStatus() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                const activos = data.servicios_activos || 0;
+                const total = data.total_servicios || 5;
+                document.getElementById('systemStatus').innerHTML = 
+                    `Sistema: <strong>${data.estado.toUpperCase()}</strong> | Servicios: ${activos}/${total}`;
+            } catch (error) {
+                document.getElementById('systemStatus').innerHTML = 
+                    'Sistema: <span style="color: var(--danger);">No conectado</span>';
+            }
+        }
+        setInterval(checkSystemStatus, 15000);
+        checkSystemStatus();
+        
+        // Login
+        async function login() {
+            const username = document.getElementById('usernameInput').value;
+            const password = document.getElementById('passwordInput').value;
+            
+            if (!username || !password) {
+                alert('Por favor ingresa usuario y contraseña');
+                return;
+            }
+            
+            await doLogin(username, password);
+        }
+        
+        async function demoLogin(username, password) {
+            await doLogin(username, password);
+        }
+        
+        async function doLogin(username, password) {
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Login fallido');
+                }
+                
+                const data = await response.json();
+                currentUser = data.usuario;
+                currentToken = data.token;
+                
+                showDashboard();
+                loadAllData();
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        function showDashboard() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('dashboard').classList.add('active');
+            
+            document.getElementById('userName').textContent = currentUser.nombre;
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('userRole').textContent = currentUser.rol.toUpperCase();
+            
+            // Mostrar/ocultar secciones según rol
+            if (currentUser.rol === 'tutor') {
+                document.getElementById('tutorSection').classList.add('active');
+                document.getElementById('fileUploadArea').style.display = 'none';
+                document.getElementById('requestAppointmentBtn').style.display = 'none';
+            } else {
+                document.getElementById('tutorSection').classList.remove('active');
+                document.getElementById('fileUploadArea').style.display = 'block';
+                document.getElementById('requestAppointmentBtn').style.display = 'inline-flex';
+            }
+        }
+        
+        function logout() {
+            currentUser = null;
+            currentToken = null;
+            document.getElementById('dashboard').classList.remove('active');
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('usernameInput').value = '';
+            document.getElementById('passwordInput').value = '';
+        }
+        
+        // Cargar todos los datos
+        function loadAllData() {
+            loadFiles();
+            loadAppointments();
+            loadNotifications();
+            
+            if (currentUser.rol === 'tutor') {
+                loadStudents();
+                loadPendingFiles();
+            }
+        }
+        
+        // Archivos
+        async function loadFiles() {
+            try {
+                const response = await fetch(`${API_URL}/archivos/estudiante/${currentUser.id}`);
+                const data = await response.json();
+                
+                const filesList = document.getElementById('filesList');
+                
+                if (data.archivos && data.archivos.length > 0) {
+                    filesList.innerHTML = data.archivos.map(file => {
+                        const fecha = new Date(file.fecha_subida).toLocaleDateString('es-ES');
+                        const statusClass = file.estado === 'pendiente' ? 'pending' : 
+                                          file.estado === 'necesita_cambios' ? 'needs-changes' : 'reviewed';
+                        
+                        return `
+                            <div class="file-item ${statusClass}">
+                                <div>
+                                    <strong>${file.nombre_original}</strong>
+                                    <p style="font-size: 0.85em; color: var(--gray);">
+                                        📅 ${fecha} | ${file.tipo.toUpperCase()}
+                                    </p>
+                                    ${file.feedback ? `<p style="margin-top: 8px; color: var(--dark);"><em>💬 ${file.feedback}</em></p>` : ''}
+                                </div>
+                                <span class="appointment-status ${file.estado}">${file.estado}</span>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    filesList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-folder-open"></i>
+                            <p>No hay archivos subidos</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error cargando archivos:', error);
+            }
+        }
+        
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files[0]) return;
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('estudiante_id', currentUser.id);
+            
+            try {
+                const response = await fetch(`${API_URL}/archivos/subir`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) throw new Error('Error subiendo archivo');
+                
+                const data = await response.json();
+                alert(`✅ Archivo "${data.nombre_original}" subido correctamente`);
+                fileInput.value = '';
+                loadFiles();
+                loadNotifications();
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        // Citas
+        async function loadAppointments() {
+            try {
+                const response = await fetch(`${API_URL}/citas/usuario/${currentUser.id}`);
+                const data = await response.json();
+                
+                const appointmentsList = document.getElementById('appointmentsList');
+                
+                if (data.citas && data.citas.length > 0) {
+                    appointmentsList.innerHTML = data.citas.map(cita => {
+                        const fecha = new Date(cita.fecha).toLocaleDateString('es-ES');
+                        const showActions = currentUser.rol === 'tutor' && cita.estado === 'pendiente';
+                        
+                        return `
+                            <div class="appointment-item">
+                                <div class="appointment-header">
+                                    <span><strong>📅 ${fecha}</strong> a las ${cita.hora}</span>
+                                    <span class="appointment-status ${cita.estado}">${cita.estado}</span>
+                                </div>
+                                <p>${cita.motivo}</p>
+                                <p style="font-size: 0.85em; color: var(--gray); margin-top: 8px;">
+                                    ${currentUser.rol === 'tutor' ? 
+                                        `Estudiante: ${cita.estudiante_nombre || 'ID ' + cita.estudiante_id}` : 
+                                        `Tutor: ${cita.tutor_nombre || 'ID ' + cita.tutor_id}`}
+                                </p>
+                                ${showActions ? `
+                                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                                        <button class="btn btn-success btn-sm" onclick="respondAppointment(${cita.id}, true)">
+                                            <i class="fas fa-check"></i> Confirmar
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="respondAppointment(${cita.id}, false)">
+                                            <i class="fas fa-times"></i> Rechazar
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    appointmentsList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-calendar-times"></i>
+                            <p>No hay citas programadas</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error cargando citas:', error);
+            }
+        }
+        
+        function openAppointmentModal() {
+            // Establecer fecha mínima como mañana
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('appointmentDate').min = tomorrow.toISOString().split('T')[0];
+            document.getElementById('appointmentDate').value = tomorrow.toISOString().split('T')[0];
+            
+            document.getElementById('appointmentModal').classList.add('active');
+        }
+        
+        async function submitAppointment(event) {
+            event.preventDefault();
+            
+            const fecha = document.getElementById('appointmentDate').value;
+            const hora = document.getElementById('appointmentTime').value;
+            const motivo = document.getElementById('appointmentReason').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/citas/solicitar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        estudiante_id: currentUser.id,
+                        tutor_id: currentUser.tutor_id,
+                        fecha: fecha,
+                        hora: hora,
+                        motivo: motivo
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Error solicitando cita');
+                
+                alert('✅ Cita solicitada correctamente');
+                closeModal('appointmentModal');
+                document.getElementById('appointmentForm').reset();
+                loadAppointments();
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function respondAppointment(citaId, aceptar) {
+            const endpoint = aceptar ? 'confirmar' : 'rechazar';
+            
+            try {
+                const response = await fetch(`${API_URL}/citas/${citaId}/${endpoint}?tutor_id=${currentUser.id}`, {
+                    method: 'PUT'
+                });
+                
+                if (!response.ok) throw new Error('Error procesando cita');
+                
+                alert(`✅ Cita ${aceptar ? 'confirmada' : 'rechazada'}`);
+                loadAppointments();
+                loadNotifications();
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        // Notificaciones
+        async function loadNotifications() {
+            try {
+                const response = await fetch(`${API_URL}/notificaciones/${currentUser.id}`);
+                const data = await response.json();
+                
+                document.getElementById('notificationBadge').textContent = data.no_leidas || 0;
+                
+                const notificationsList = document.getElementById('notificationsList');
+                
+                if (data.notificaciones && data.notificaciones.length > 0) {
+                    notificationsList.innerHTML = data.notificaciones.slice(0, 10).map(notif => {
+                        const fecha = new Date(notif.fecha_creacion).toLocaleString('es-ES');
+                        const iconClass = notif.tipo.includes('archivo') ? 'archivo' : 
+                                         notif.tipo.includes('cita') ? 'cita' : 'feedback';
+                        
+                        return `
+                            <div class="notification-item ${!notif.leida ? 'unread' : ''}" 
+                                 onclick="markAsRead(${notif.id})">
+                                <div class="notification-icon ${iconClass}">
+                                    ${notif.icono || '🔔'}
+                                </div>
+                                <div>
+                                    <p>${notif.mensaje}</p>
+                                    <small style="color: var(--gray);">${fecha}</small>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    notificationsList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-bell-slash"></i>
+                            <p>No hay notificaciones</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error cargando notificaciones:', error);
+            }
+        }
+        
+        async function markAsRead(notifId) {
+            try {
+                await fetch(`${API_URL}/notificaciones/${notifId}/leer?usuario_id=${currentUser.id}`, {
+                    method: 'PUT'
+                });
+                loadNotifications();
+            } catch (error) {
+                console.error('Error marcando notificación:', error);
+            }
+        }
+        
+        async function markAllAsRead() {
+            try {
+                await fetch(`${API_URL}/notificaciones/leer-todas/${currentUser.id}`, {
+                    method: 'PUT'
+                });
+                loadNotifications();
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        // Tutor: Cargar estudiantes
+        async function loadStudents() {
+            try {
+                const response = await fetch(`${API_URL}/tutores/${currentUser.id}/estudiantes`);
+                const data = await response.json();
+                
+                const studentsList = document.getElementById('studentsList');
+                
+                if (data.estudiantes && data.estudiantes.length > 0) {
+                    studentsList.innerHTML = data.estudiantes.map(est => `
+                        <div class="student-card">
+                            <h4><i class="fas fa-user-graduate"></i> ${est.nombre}</h4>
+                            <p style="color: var(--gray);">${est.email}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    studentsList.innerHTML = '<p style="color: var(--gray);">No hay estudiantes asignados</p>';
+                }
+            } catch (error) {
+                console.error('Error cargando estudiantes:', error);
+            }
+        }
+        
+        // Tutor: Cargar archivos pendientes
+        async function loadPendingFiles() {
+            try {
+                const response = await fetch(`${API_URL}/archivos/tutor/${currentUser.id}?estado=pendiente`);
+                const data = await response.json();
+                
+                const pendingFilesList = document.getElementById('pendingFilesList');
+                
+                if (data.archivos && data.archivos.length > 0) {
+                    pendingFilesList.innerHTML = data.archivos.map(file => {
+                        const fecha = new Date(file.fecha_subida).toLocaleDateString('es-ES');
+                        
+                        return `
+                            <div class="file-item pending">
+                                <div>
+                                    <strong>${file.nombre_original}</strong>
+                                    <p style="font-size: 0.85em; color: var(--gray);">
+                                        De: ${file.estudiante_nombre || 'Estudiante'} | 📅 ${fecha}
+                                    </p>
+                                </div>
+                                <button class="btn btn-primary btn-sm" onclick="openFeedbackModal(${file.id})">
+                                    <i class="fas fa-comment"></i> Feedback
+                                </button>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    pendingFilesList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-check-circle"></i>
+                            <p>No hay archivos pendientes</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error cargando archivos pendientes:', error);
+            }
+        }
+        
+        function openFeedbackModal(fileId) {
+            document.getElementById('feedbackFileId').value = fileId;
+            document.getElementById('feedbackModal').classList.add('active');
+        }
+        
+        async function submitFeedback(event) {
+            event.preventDefault();
+            
+            const fileId = document.getElementById('feedbackFileId').value;
+            const feedback = document.getElementById('feedbackText').value;
+            const estado = document.getElementById('feedbackStatus').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/archivos/${fileId}/feedback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        feedback: feedback,
+                        tutor_id: currentUser.id,
+                        estado: estado
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Error enviando feedback');
+                
+                alert('✅ Feedback enviado correctamente');
+                closeModal('feedbackModal');
+                document.getElementById('feedbackForm').reset();
+                loadPendingFiles();
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+        
+        // API Tester
+        async function testEndpoint(endpoint) {
+            try {
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                document.getElementById('apiResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('apiResult').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testServices() {
+            await testEndpoint('/api/health');
+        }
+        
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            checkSystemStatus();
+            
+            // Cerrar modales al hacer clic fuera
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        this.classList.remove('active');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
