@@ -15,8 +15,12 @@ import sqlalchemy
 from sqlalchemy import Table, Column, Integer, String, ForeignKey, create_engine
 import os
 
-# Configuración
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///../../../data/tfg_soa.db")
+# Configuración - Fixed path
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(DATA_DIR, 'tfg_soa.db')}")
 
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
