@@ -74,6 +74,30 @@ def allowed_file(filename: str) -> bool:
     ext = os.path.splitext(filename)[1].lower()
     return ext in ALLOWED_EXTENSIONS
 
+async def get_user_role(user_id: int) -> Optional[str]:
+    """Obtener el rol de un usuario"""
+    try:
+        query = "SELECT rol FROM usuarios WHERE id = :id"
+        user = await database.fetch_one(query, {"id": user_id})
+        if user:
+            return user["rol"]
+        return None
+    except Exception as e:
+        print(f"Error obteniendo rol: {e}")
+        return None
+
+async def is_tutor_of_student(tutor_id: int, estudiante_id: int) -> bool:
+    """Verificar si un tutor tiene asignado a un estudiante"""
+    try:
+        query = "SELECT tutor_id FROM usuarios WHERE id = :estudiante_id"
+        student = await database.fetch_one(query, {"estudiante_id": estudiante_id})
+        if student and student["tutor_id"] == tutor_id:
+            return True
+        return False
+    except Exception as e:
+        print(f"Error verificando relación tutor-estudiante: {e}")
+        return False
+
 async def notify_tutor(estudiante_id: int, archivo_nombre: str):
     """Notificar al tutor sobre nuevo archivo"""
     try:
@@ -117,7 +141,15 @@ async def health():
 
 @app.post("/subir")
 async def subir_archivo(estudiante_id: int = Form(...), file: UploadFile = File(...)):
-    """Subir un archivo (PDF o ZIP)"""
+    """Subir un archivo (PDF o ZIP) - SOLO ESTUDIANTES"""
+    
+    # Verificar que el que sube es un estudiante
+    rol = await get_user_role(estudiante_id)
+    if rol != "estudiante":
+        raise HTTPException(
+            status_code=403, 
+            detail="Solo los estudiantes pueden subir archivos"
+        )
     
     # Validar extensión
     if not allowed_file(file.filename):
@@ -185,6 +217,14 @@ async def archivos_estudiante(estudiante_id: int):
 @app.get("/tutor/{tutor_id}")
 async def archivos_tutor(tutor_id: int, estado: Optional[str] = None):
     """Obtener archivos de estudiantes de un tutor"""
+    # Verificar que es un tutor
+    rol = await get_user_role(tutor_id)
+    if rol != "tutor":
+        raise HTTPException(
+            status_code=403, 
+            detail="Solo los tutores pueden acceder a esta información"
+        )
+    
     # Primero obtener estudiantes del tutor
     query_estudiantes = "SELECT id FROM usuarios WHERE tutor_id = :tutor_id"
     estudiantes = await database.fetch_all(query_estudiantes, {"tutor_id": tutor_id})
@@ -216,13 +256,37 @@ async def obtener_archivo(archivo_id: int):
     return dict(archivo)
 
 @app.get("/{archivo_id}/descargar")
-async def descargar_archivo(archivo_id: int):
-    """Descargar un archivo"""
+async def descargar_archivo(archivo_id: int, usuario_id: int):
+    """Descargar un archivo - SOLO el estudiante dueño o su tutor"""
     query = "SELECT * FROM archivos WHERE id = :id"
     archivo = await database.fetch_one(query, {"id": archivo_id})
     
     if not archivo:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    
+    # Verificar permisos
+    rol = await get_user_role(usuario_id)
+    
+    if rol == "estudiante":
+        # El estudiante solo puede descargar sus propios archivos
+        if archivo["estudiante_id"] != usuario_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="No tienes permiso para descargar este archivo"
+            )
+    elif rol == "tutor":
+        # El tutor solo puede descargar archivos de sus estudiantes
+        is_his_student = await is_tutor_of_student(usuario_id, archivo["estudiante_id"])
+        if not is_his_student:
+            raise HTTPException(
+                status_code=403, 
+                detail="Solo puedes descargar archivos de tus estudiantes"
+            )
+    else:
+        raise HTTPException(
+            status_code=403, 
+            detail="No tienes permiso para descargar archivos"
+        )
     
     if not os.path.exists(archivo["ruta"]):
         raise HTTPException(status_code=404, detail="Archivo físico no encontrado")
@@ -235,13 +299,30 @@ async def descargar_archivo(archivo_id: int):
 
 @app.post("/{archivo_id}/feedback")
 async def agregar_feedback(archivo_id: int, feedback: str = Form(...), tutor_id: int = Form(...), estado: str = Form("revisado")):
-    """Agregar feedback a un archivo"""
+    """Agregar feedback a un archivo - SOLO TUTORES"""
+    
+    # Verificar que es un tutor
+    rol = await get_user_role(tutor_id)
+    if rol != "tutor":
+        raise HTTPException(
+            status_code=403, 
+            detail="Solo los tutores pueden dar feedback"
+        )
+    
     # Verificar que el archivo existe
     query = "SELECT * FROM archivos WHERE id = :id"
     archivo = await database.fetch_one(query, {"id": archivo_id})
     
     if not archivo:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    
+    # Verificar que el tutor tiene asignado a este estudiante
+    is_his_student = await is_tutor_of_student(tutor_id, archivo["estudiante_id"])
+    if not is_his_student:
+        raise HTTPException(
+            status_code=403, 
+            detail="Solo puedes dar feedback a archivos de tus estudiantes"
+        )
     
     # Actualizar archivo
     update_query = """
@@ -272,13 +353,20 @@ async def agregar_feedback(archivo_id: int, feedback: str = Form(...), tutor_id:
     return {"mensaje": "Feedback agregado correctamente", "estado": estado}
 
 @app.delete("/{archivo_id}")
-async def eliminar_archivo(archivo_id: int):
-    """Eliminar un archivo"""
+async def eliminar_archivo(archivo_id: int, usuario_id: int):
+    """Eliminar un archivo - SOLO el estudiante dueño"""
     query = "SELECT * FROM archivos WHERE id = :id"
     archivo = await database.fetch_one(query, {"id": archivo_id})
     
     if not archivo:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    
+    # Verificar que el que elimina es el dueño del archivo
+    if archivo["estudiante_id"] != usuario_id:
+        raise HTTPException(
+            status_code=403, 
+            detail="Solo puedes eliminar tus propios archivos"
+        )
     
     # Eliminar archivo físico
     if os.path.exists(archivo["ruta"]):

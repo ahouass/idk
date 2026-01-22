@@ -21,6 +21,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'tfg_soa.db')}"
 NOTIFICATIONS_SERVICE = os.getenv("NOTIFICATIONS_SERVICE", "http://localhost:5005")
+USERS_SERVICE = os.getenv("USERS_SERVICE", "http://localhost:5002")
 
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
@@ -84,6 +85,18 @@ async def notificar(usuario_id: int, tipo: str, mensaje: str, datos: dict = None
     except Exception as e:
         print(f"Error notificando: {e}")
 
+async def get_user_role(user_id: int) -> Optional[str]:
+    """Obtener el rol de un usuario"""
+    try:
+        query = "SELECT rol FROM usuarios WHERE id = :id"
+        user = await database.fetch_one(query, {"id": user_id})
+        if user:
+            return user["rol"]
+        return None
+    except Exception as e:
+        print(f"Error obteniendo rol: {e}")
+        return None
+
 # ========== EVENTOS ==========
 @app.on_event("startup")
 async def startup():
@@ -107,7 +120,23 @@ async def health():
 
 @app.post("/solicitar")
 async def solicitar_cita(cita: CitaSolicitud):
-    """Solicitar una nueva cita"""
+    """Solicitar una nueva cita - SOLO ESTUDIANTES"""
+    
+    # Verificar que el solicitante es un estudiante
+    rol = await get_user_role(cita.estudiante_id)
+    if rol != "estudiante":
+        raise HTTPException(
+            status_code=403, 
+            detail="Solo los estudiantes pueden solicitar citas"
+        )
+    
+    # Verificar que el tutor_id corresponde a un tutor
+    tutor_rol = await get_user_role(cita.tutor_id)
+    if tutor_rol != "tutor":
+        raise HTTPException(
+            status_code=400, 
+            detail="El ID proporcionado no corresponde a un tutor"
+        )
     
     # Verificar que no haya cita duplicada
     query_check = """
@@ -201,13 +230,29 @@ async def obtener_cita(cita_id: int):
 
 @app.put("/{cita_id}/confirmar")
 async def confirmar_cita(cita_id: int, request: CitaRespuesta):
-    """Confirmar una cita"""
+    """Confirmar una cita - SOLO TUTORES"""
+    
+    # Verificar que el que confirma es un tutor
+    rol = await get_user_role(request.tutor_id)
+    if rol != "tutor":
+        raise HTTPException(
+            status_code=403, 
+            detail="Solo los tutores pueden confirmar citas"
+        )
+    
     # Verificar cita
     query = "SELECT * FROM citas WHERE id = :id"
     cita = await database.fetch_one(query, {"id": cita_id})
     
     if not cita:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
+    
+    # Verificar que el tutor es el asignado a esta cita
+    if cita["tutor_id"] != request.tutor_id:
+        raise HTTPException(
+            status_code=403, 
+            detail="No tienes permiso para confirmar esta cita"
+        )
     
     if cita["estado"] != "pendiente":
         raise HTTPException(status_code=400, detail="La cita ya fue procesada")
@@ -232,13 +277,29 @@ async def confirmar_cita(cita_id: int, request: CitaRespuesta):
 
 @app.put("/{cita_id}/rechazar")
 async def rechazar_cita(cita_id: int, request: CitaRespuesta):
-    """Rechazar una cita"""
+    """Rechazar una cita - SOLO TUTORES"""
+    
+    # Verificar que el que rechaza es un tutor
+    rol = await get_user_role(request.tutor_id)
+    if rol != "tutor":
+        raise HTTPException(
+            status_code=403, 
+            detail="Solo los tutores pueden rechazar citas"
+        )
+    
     # Verificar cita
     query = "SELECT * FROM citas WHERE id = :id"
     cita = await database.fetch_one(query, {"id": cita_id})
     
     if not cita:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
+    
+    # Verificar que el tutor es el asignado a esta cita
+    if cita["tutor_id"] != request.tutor_id:
+        raise HTTPException(
+            status_code=403, 
+            detail="No tienes permiso para rechazar esta cita"
+        )
     
     if cita["estado"] != "pendiente":
         raise HTTPException(status_code=400, detail="La cita ya fue procesada")
@@ -267,13 +328,20 @@ async def rechazar_cita(cita_id: int, request: CitaRespuesta):
 
 @app.put("/{cita_id}/cancelar")
 async def cancelar_cita(cita_id: int, usuario_id: int):
-    """Cancelar una cita"""
+    """Cancelar una cita - Solo el estudiante que la creó puede cancelarla"""
     # Verificar cita
     query = "SELECT * FROM citas WHERE id = :id"
     cita = await database.fetch_one(query, {"id": cita_id})
     
     if not cita:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
+    
+    # Solo el estudiante puede cancelar su cita
+    if cita["estudiante_id"] != usuario_id:
+        raise HTTPException(
+            status_code=403, 
+            detail="Solo el estudiante que creó la cita puede cancelarla"
+        )
     
     if cita["estado"] not in ["pendiente", "confirmada"]:
         raise HTTPException(status_code=400, detail="No se puede cancelar esta cita")
@@ -282,12 +350,11 @@ async def cancelar_cita(cita_id: int, usuario_id: int):
     update_query = "UPDATE citas SET estado = 'cancelada', fecha_respuesta = :fecha WHERE id = :id"
     await database.execute(update_query, {"fecha": datetime.now().isoformat(), "id": cita_id})
     
-    # Notificar a la otra parte
-    notificar_a = cita["tutor_id"] if usuario_id == cita["estudiante_id"] else cita["estudiante_id"]
+    # Notificar al tutor
     await notificar(
-        notificar_a,
+        cita["tutor_id"],
         "cita",
-        f"La cita para {cita['fecha']} a las {cita['hora']} ha sido cancelada",
+        f"La cita para {cita['fecha']} a las {cita['hora']} ha sido cancelada por el estudiante",
         {"cita_id": cita_id, "estado": "cancelada"}
     )
     

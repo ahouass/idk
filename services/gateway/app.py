@@ -9,7 +9,7 @@ import os
 import httpx
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -44,6 +44,10 @@ app = FastAPI(
     - **Files** (puerto 5003): Gestión de archivos
     - **Appointments** (puerto 5004): Gestión de citas
     - **Notifications** (puerto 5005): Notificaciones
+    
+    ## Permisos:
+    - **Estudiantes**: Pueden subir archivos y solicitar citas
+    - **Tutores**: Pueden descargar archivos de sus estudiantes y aceptar/rechazar citas
     """,
     version="1.0.0",
     docs_url="/docs",
@@ -333,7 +337,7 @@ async def estudiantes_tutor(tutor_id: int):
 
 @app.post("/api/archivos/subir")
 async def subir_archivo(estudiante_id: int = Form(...), file: UploadFile = File(...)):
-    """Upload file"""
+    """Upload file - SOLO ESTUDIANTES"""
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             # Read file content
@@ -372,13 +376,13 @@ async def archivos_estudiante(estudiante_id: int):
 
 @app.get("/api/archivos/tutor/{tutor_id}")
 async def archivos_tutor(tutor_id: int, estado: Optional[str] = None):
-    """Get tutor files"""
+    """Get tutor files - SOLO TUTORES"""
     params = {"estado": estado} if estado else None
     return await proxy_request("files", f"/tutor/{tutor_id}", "GET", params=params)
 
 @app.post("/api/archivos/{archivo_id}/feedback")
 async def feedback_archivo(archivo_id: int, feedback: str = Form(...), tutor_id: int = Form(...), estado: str = Form("revisado")):
-    """Add feedback to a file"""
+    """Add feedback to a file - SOLO TUTORES"""
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.post(
@@ -406,15 +410,45 @@ async def feedback_archivo(archivo_id: int, feedback: str = Form(...), tutor_id:
             raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @app.get("/api/archivos/{archivo_id}/descargar")
-async def descargar_archivo(archivo_id: int):
-    """Download file"""
-    return await proxy_request("files", f"/{archivo_id}/descargar", "GET")
+async def descargar_archivo(archivo_id: int, usuario_id: int):
+    """Download file - Estudiante (sus propios archivos) o Tutor (archivos de sus estudiantes)"""
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            response = await client.get(
+                f"{SERVICES['files']}/{archivo_id}/descargar",
+                params={"usuario_id": usuario_id}
+            )
+            
+            if response.status_code >= 400:
+                try:
+                    detail = response.json().get("detail", "Error descargando archivo")
+                except:
+                    detail = response.text or "Error descargando archivo"
+                raise HTTPException(status_code=response.status_code, detail=detail)
+            
+            # Get filename from content-disposition header
+            content_disposition = response.headers.get("content-disposition", "")
+            filename = "archivo"
+            if "filename=" in content_disposition:
+                filename = content_disposition.split("filename=")[1].strip('"')
+            
+            return StreamingResponse(
+                iter([response.content]),
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+            )
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Servicio files no disponible: {str(e)}")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 # ========== CITAS ==========
 
 @app.post("/api/citas/solicitar")
 async def solicitar_cita(cita: CitaSolicitud):
-    """Request appointment"""
+    """Request appointment - SOLO ESTUDIANTES"""
     return await proxy_request("appointments", "/solicitar", "POST", cita.dict())
 
 @app.get("/api/citas/usuario/{usuario_id}")
@@ -430,17 +464,17 @@ async def citas_tutor(tutor_id: int, estado: Optional[str] = None):
 
 @app.put("/api/citas/{cita_id}/confirmar")
 async def confirmar_cita(cita_id: int, request: CitaRespuesta):
-    """Confirm appointment"""
+    """Confirm appointment - SOLO TUTORES"""
     return await proxy_request("appointments", f"/{cita_id}/confirmar", "PUT", request.dict())
 
 @app.put("/api/citas/{cita_id}/rechazar")
 async def rechazar_cita(cita_id: int, request: CitaRespuesta):
-    """Reject appointment"""
+    """Reject appointment - SOLO TUTORES"""
     return await proxy_request("appointments", f"/{cita_id}/rechazar", "PUT", request.dict())
 
 @app.put("/api/citas/{cita_id}/cancelar")
 async def cancelar_cita(cita_id: int, usuario_id: int):
-    """Cancel appointment"""
+    """Cancel appointment - SOLO el estudiante que la creó"""
     return await proxy_request("appointments", f"/{cita_id}/cancelar", "PUT", {"usuario_id": usuario_id})
 
 # ========== NOTIFICACIONES ==========
@@ -474,5 +508,9 @@ if __name__ == "__main__":
     print("Servicios requeridos:")
     for name, url in SERVICES.items():
         print(f"   • {name}: {url}")
+    print("=" * 60)
+    print("\n📋 Permisos:")
+    print("   • Estudiantes: Subir archivos, solicitar citas")
+    print("   • Tutores: Descargar archivos, aceptar/rechazar citas")
     print("=" * 60)
     uvicorn.run(app, host="0.0.0.0", port=5000)

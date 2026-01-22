@@ -1,4 +1,3 @@
-<!-- Replace the entire file with this corrected version -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -36,6 +35,7 @@
         button.secondary { background: #95a5a6; }
         button.danger { background: #e74c3c; }
         button.logout { background: #e74c3c; position: absolute; right: 20px; top: 20px; }
+        button.download { background: #3498db; }
         
         input, textarea, select { width: 100%; padding: 10px; margin: 8px 0; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 14px; }
         input:focus, textarea:focus, select:focus { outline: none; border-color: #667eea; }
@@ -67,6 +67,10 @@
         
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: #555; }
+        
+        .permissions-info { background: #e8f4fc; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 13px; }
+        .permissions-info.tutor { background: #d4edda; }
+        .permissions-info.estudiante { background: #fff3cd; }
     </style>
 </head>
 <body>
@@ -96,8 +100,8 @@
             <br>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: left;">
                 <strong>Usuarios de prueba:</strong><br>
-                <code>tutor1 / tutor123</code><br>
-                <code>estudiante1 / estudiante123</code>
+                <code>tutor1 / tutor123</code> (Solo puede aceptar/rechazar citas y descargar archivos)<br>
+                <code>estudiante1 / estudiante123</code> (Solo puede solicitar citas y subir archivos)
             </div>
         </div>
         
@@ -106,6 +110,7 @@
             <div class="card user-info">
                 <h3>👤 Información del Usuario</h3>
                 <div id="userDetails"></div>
+                <div id="permissionsInfo"></div>
             </div>
             
             <div class="dashboard">
@@ -118,14 +123,16 @@
                         <p><small>Solo archivos PDF o ZIP</small></p>
                     </div>
                     <hr style="margin: 15px 0; border: none; border-top: 1px solid #eee;">
-                    <h4>Archivos Subidos</h4>
+                    <h4>Archivos</h4>
                     <div id="filesContent"><p>Cargando...</p></div>
                 </div>
                 
                 <!-- Gestión de Citas -->
                 <div class="card">
                     <h3>📅 Gestión de Tutorías</h3>
-                    <button onclick="openAppointmentModal()">➕ Solicitar Nueva Tutoría</button>
+                    <div id="appointmentActions">
+                        <button id="requestAppointmentBtn" onclick="openAppointmentModal()">➕ Solicitar Nueva Tutoría</button>
+                    </div>
                     <hr style="margin: 15px 0; border: none; border-top: 1px solid #eee;">
                     <h4>Citas Programadas</h4>
                     <div id="appointmentsContent"><p>Cargando...</p></div>
@@ -280,14 +287,35 @@
                 ${currentUser.tutor_id ? `<p><strong>Tutor ID:</strong> ${currentUser.tutor_id}</p>` : ''}
             `;
             
-            // Mostrar/ocultar secciones según rol
+            // Mostrar permisos según rol
             if (currentUser.rol === 'tutor') {
+                document.getElementById('permissionsInfo').innerHTML = `
+                    <div class="permissions-info tutor">
+                        <strong>📋 Tus permisos:</strong><br>
+                        ✅ Aceptar/Rechazar citas de estudiantes<br>
+                        ✅ Descargar archivos de tus estudiantes<br>
+                        ✅ Dar feedback a los archivos<br>
+                        ❌ No puedes solicitar citas<br>
+                        ❌ No puedes subir archivos
+                    </div>
+                `;
                 document.getElementById('tutorActions').classList.remove('hidden');
                 document.getElementById('fileUploadSection').style.display = 'none';
+                document.getElementById('requestAppointmentBtn').style.display = 'none';
                 loadTutorData();
             } else {
+                document.getElementById('permissionsInfo').innerHTML = `
+                    <div class="permissions-info estudiante">
+                        <strong>📋 Tus permisos:</strong><br>
+                        ✅ Solicitar citas con tu tutor<br>
+                        ✅ Subir archivos (PDF, ZIP)<br>
+                        ✅ Cancelar tus citas pendientes<br>
+                        ❌ No puedes aceptar/rechazar citas
+                    </div>
+                `;
                 document.getElementById('tutorActions').classList.add('hidden');
                 document.getElementById('fileUploadSection').style.display = 'block';
+                document.getElementById('requestAppointmentBtn').style.display = 'inline-block';
             }
             
             loadFiles();
@@ -319,6 +347,7 @@
                         <p><small>Subido: ${new Date(file.fecha_subida).toLocaleString()}</small></p>
                         <p><span class="badge ${file.estado === 'revisado' ? 'badge-success' : 'badge-warning'}">${file.estado}</span></p>
                         ${file.feedback ? `<p><em>💬 Feedback:</em> ${file.feedback}</p>` : ''}
+                        ${currentUser.rol === 'tutor' ? `<button class="download" onclick="downloadFile(${file.id})">📥 Descargar</button>` : ''}
                     </div>
                 `).join('');
                 
@@ -329,6 +358,11 @@
         }
         
         async function uploadFile() {
+            if (currentUser.rol !== 'estudiante') {
+                alert('Solo los estudiantes pueden subir archivos');
+                return;
+            }
+            
             const fileInput = document.getElementById('fileInput');
             if (!fileInput.files[0]) {
                 alert('Selecciona un archivo');
@@ -359,8 +393,42 @@
             }
         }
         
+        async function downloadFile(archivoId) {
+            try {
+                const response = await fetch(`${API_URL}/archivos/${archivoId}/descargar?usuario_id=${currentUser.id}`);
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error descargando archivo');
+                }
+                
+                const blob = await response.blob();
+                const contentDisposition = response.headers.get('content-disposition');
+                let filename = 'archivo';
+                if (contentDisposition && contentDisposition.includes('filename=')) {
+                    filename = contentDisposition.split('filename=')[1].replace(/"/g, '');
+                }
+                
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
         // ========== CITAS ==========
         function openAppointmentModal() {
+            if (currentUser.rol !== 'estudiante') {
+                alert('Solo los estudiantes pueden solicitar citas');
+                return;
+            }
             document.getElementById('appointmentModal').classList.add('active');
             // Set minimum date to today
             const today = new Date().toISOString().split('T')[0];
@@ -374,6 +442,11 @@
         
         async function submitAppointment(event) {
             event.preventDefault();
+            
+            if (currentUser.rol !== 'estudiante') {
+                alert('Solo los estudiantes pueden solicitar citas');
+                return;
+            }
             
             const fecha = document.getElementById('citaFecha').value;
             const hora = document.getElementById('citaHora').value;
@@ -457,6 +530,11 @@
                                 <button class="danger" onclick="rejectAppointment(${cita.id})">❌ Rechazar</button>
                             </div>
                         ` : ''}
+                        ${currentUser.rol === 'estudiante' && cita.estado === 'pendiente' ? `
+                            <div style="margin-top: 10px;">
+                                <button class="danger" onclick="cancelAppointment(${cita.id})">🚫 Cancelar</button>
+                            </div>
+                        ` : ''}
                     </div>
                 `).join('');
                 
@@ -467,6 +545,11 @@
         }
         
         async function confirmAppointment(citaId) {
+            if (currentUser.rol !== 'tutor') {
+                alert('Solo los tutores pueden confirmar citas');
+                return;
+            }
+            
             try {
                 const response = await fetch(`${API_URL}/citas/${citaId}/confirmar`, {
                     method: 'PUT',
@@ -474,7 +557,10 @@
                     body: JSON.stringify({ tutor_id: currentUser.id })
                 });
                 
-                if (!response.ok) throw new Error('Error confirmando cita');
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error confirmando cita');
+                }
                 
                 alert('✅ Cita confirmada');
                 loadAppointments();
@@ -485,6 +571,11 @@
         }
         
         async function rejectAppointment(citaId) {
+            if (currentUser.rol !== 'tutor') {
+                alert('Solo los tutores pueden rechazar citas');
+                return;
+            }
+            
             const motivo = prompt('Motivo del rechazo:');
             if (!motivo) return;
             
@@ -495,9 +586,39 @@
                     body: JSON.stringify({ tutor_id: currentUser.id, motivo_rechazo: motivo })
                 });
                 
-                if (!response.ok) throw new Error('Error rechazando cita');
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error rechazando cita');
+                }
                 
                 alert('Cita rechazada');
+                loadAppointments();
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function cancelAppointment(citaId) {
+            if (currentUser.rol !== 'estudiante') {
+                alert('Solo los estudiantes pueden cancelar sus citas');
+                return;
+            }
+            
+            if (!confirm('¿Estás seguro de cancelar esta cita?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/citas/${citaId}/cancelar?usuario_id=${currentUser.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error cancelando cita');
+                }
+                
+                alert('Cita cancelada');
                 loadAppointments();
                 
             } catch (error) {
@@ -558,6 +679,7 @@
                             <div class="file-item pending">
                                 <strong>${file.nombre_original}</strong>
                                 <p><small>Estudiante ID: ${file.estudiante_id}</small></p>
+                                <button class="download" onclick="downloadFile(${file.id})">📥 Descargar</button>
                                 <textarea id="feedback_${file.id}" placeholder="Escribe tu feedback..."></textarea>
                                 <button onclick="addFeedback(${file.id})">💬 Enviar Feedback</button>
                             </div>
@@ -575,6 +697,11 @@
         }
         
         async function addFeedback(archivoId) {
+            if (currentUser.rol !== 'tutor') {
+                alert('Solo los tutores pueden dar feedback');
+                return;
+            }
+            
             const feedback = document.getElementById(`feedback_${archivoId}`).value.trim();
             if (!feedback) {
                 alert('Escribe un feedback');
@@ -592,7 +719,10 @@
                     body: formData
                 });
                 
-                if (!response.ok) throw new Error('Error enviando feedback');
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error enviando feedback');
+                }
                 
                 alert('✅ Feedback enviado');
                 loadTutorData();
