@@ -1,0 +1,26 @@
+version: '3.8'
+services:
+  appointments:
+    build: ./services/appointments
+    ports:
+      - "5001:5000"
+  auth:
+    build: ./services/auth
+    ports:
+      - "5002:5000"
+  files:
+    build: ./services/files
+    ports:
+      - "5003:5000"
+  gateway:
+    build: ./services/gateway
+    ports:
+      - "5000:5000"
+  notifications:
+    build: ./services/notifications
+    ports:
+      - "5004:5000"
+  users:
+    build: ./services/users
+    ports:
+      - "5005:5000"
